@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Canje Ilolay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root {
+    --font-anthropic-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-anthropic-serif: "Source Serif 4", Georgia, serif;
+    --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 20px;
+    --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 16px;
+    --cds-radius: 8px; --cds-dur-slow: .3s;
+    --cds-font-size-caption: 12px; --cds-font-size-body: 14px; --cds-font-size-heading: 16px; --cds-font-size-title: 28px;
+    --cds-font-weight-medium: 600;
+    --color-bg: #f7f6f2; --color-panel: #ffffff; --color-fg: #1f1e1b; --color-fg-muted: #6b6860;
+    --color-border-line: #e3e0d8; --color-bad: #c43d3d; --color-ok: #2e8b57; --color-warn: #b7791f;
+    --cds-surface-popover: #ffffff; --cds-border: #d9d5cb; --cds-text-secondary: #6b6860;
+    --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.12);
+    --cds-chart-grid: #eeebe4; --cds-chart-axis: #b9b5ab; --cds-chart-reference: #8a867c;
+    --cds-chart-muted: #c9c5bb; --cds-chart-status-critical: #d9534f;
+    --c1: #2f6fb5; --c2: #d9822b; --c3: #7b62c4;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #1a1918; --color-panel: #242320; --color-fg: #ecebe6; --color-fg-muted: #a39f95;
+      --color-border-line: #3a3833; --color-bad: #e06666; --color-ok: #5cc48a; --color-warn: #e0a24a;
+      --cds-surface-popover: #2c2a27; --cds-border: #45423c; --cds-text-secondary: #a39f95;
+      --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.5);
+      --cds-chart-grid: #302e2a; --cds-chart-axis: #57544d; --cds-chart-reference: #8f8b81;
+      --cds-chart-muted: #5c5952; --cds-chart-status-critical: #e06666;
+      --c1: #6aa3e0; --c2: #e9a25c; --c3: #a48fe6;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-body); }
+  .pagina { max-width: 1200px; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 48px max(16px, env(safe-area-inset-left, 0px)); }
+  .al-dia { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0 0 var(--cds-gap-sm); }
+  .dash-skeleton { color: transparent !important; background: var(--cds-chart-grid); border-radius: 4px; min-height: 1em; }
+</style>
+<script>
+// Reemplazo mínimo del runtime del tablero: lee los JSON de datos/ y vuelve a dibujar
+window.dash = (() => {
+  const ids = ["canje", "articulos", "vendedores"];
+  const st = Object.fromEntries(ids.map((i) => [i, { status: 'loading', data: [] }]));
+  const draws = new Map();
+  const run = (name) => {
+    const fn = draws.get(name);
+    if (fn) document.querySelectorAll('[data-draw="' + name + '"]').forEach((el) => { try { fn(el); } catch (e) { console.error(name, e); } });
+  };
+  const fire = () => { for (const n of draws.keys()) run(n); };
+  for (const i of ids) {
+    fetch('datos/' + i + '.json?v=202611041548')
+      .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then((d) => { st[i] = { status: 'ok', data: d }; fire(); })
+      .catch(() => { st[i] = { status: 'error', data: [] }; fire(); });
+  }
+  document.addEventListener('DOMContentLoaded', fire);
+  let t, ancho = innerWidth;
+  addEventListener('resize', () => { if (innerWidth === ancho) return; ancho = innerWidth; clearTimeout(t); t = setTimeout(fire, 150); });
+  return {
+    data: (i) => st[i] || { status: 'missing', data: [] },
+    draw(name, fn) { if (fn) draws.set(name, fn); if (document.readyState === 'loading') return; run(name); },
+    onData(f) { f(); },
+    colors: ['var(--c1)', 'var(--c2)', 'var(--c3)'],
+  };
+})();
+</script>
+</head>
+<body>
+<div class="pagina">
+<p class="al-dia">Datos de Gescom al 04/11/2026 15:48. Se actualiza todos los días a las 15 hs.</p>
+
+<style>
+.ci{display:flex;flex-direction:column;gap:var(--cds-gap-lg);font-family:var(--font-anthropic-sans);font-variant-numeric:tabular-nums}
+.ci-head h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0;text-wrap:balance}
+.ci-head p{margin:var(--cds-gap-xs) 0 0;color:var(--color-fg-muted);max-width:76ch}
+.ci-head p.ci-take{color:var(--color-fg)}
+.ci .ci-head b,.ci .ci-tile b,.ci .ci-card b,.ci .ci-bar b{font-weight:var(--cds-font-weight-medium)}
+.ci-bar{display:flex;gap:var(--cds-gap-sm) var(--cds-gap-md);flex-wrap:wrap;align-items:flex-end}
+.ci-field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ci-field>span{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.ci-seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--color-border-line);border-radius:var(--cds-radius);overflow:hidden}
+.ci-seg button{font:inherit;background:none;border:0;padding:var(--cds-pad-xs) var(--cds-pad-md);color:var(--color-fg-muted);cursor:pointer}
+.ci-seg button+button{border-left:1px solid var(--color-border-line)}
+.ci-seg button[aria-pressed=true]{background:var(--color-panel);color:var(--color-fg);font-weight:var(--cds-font-weight-medium)}
+.ci input,.ci select{font:inherit;padding:var(--cds-pad-xs) var(--cds-pad-sm);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-bg);color:var(--color-fg);min-width:0}
+.ci-dates{display:flex;gap:var(--cds-gap-xs);align-items:center;flex-wrap:wrap}
+.ci-btn{font:inherit;background:none;border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-xs) var(--cds-pad-sm);color:var(--color-fg);cursor:pointer}
+.ci-btn:hover{background:var(--color-panel)}
+.ci button:focus-visible,.ci summary:focus-visible,.ci-table tbody tr:focus-visible{outline:2px solid var(--color-fg);outline-offset:-2px}
+.ci-prod{position:relative}
+.ci-prod summary{list-style:none;cursor:pointer;padding:var(--cds-pad-xs) var(--cds-pad-sm);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-bg);min-width:14rem;display:flex;justify-content:space-between;gap:8px}
+.ci-prod summary::-webkit-details-marker{display:none}
+.ci-prod summary::after{content:'▾';color:var(--color-fg-muted)}
+.ci-prod[open] summary::after{content:'▴'}
+.ci-panel{position:absolute;z-index:5;top:calc(100% + 4px);left:0;width:min(30rem,calc(100vw - 48px));background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-sm);display:flex;flex-direction:column;gap:var(--cds-gap-sm)}
+.ci-panel-tools{display:flex;gap:var(--cds-gap-xs);flex-wrap:wrap}
+.ci-panel-tools input{flex:1 1 10rem}
+.ci-list{max-height:22rem;overflow:auto;font-size:var(--cds-font-size-caption)}
+.ci-grp{border-bottom:1px solid var(--color-border-line);padding:4px 0}
+.ci-grp>label{font-weight:var(--cds-font-weight-medium);font-size:var(--cds-font-size-body)}
+.ci-list label{display:flex;gap:6px;align-items:center;padding:2px 0;cursor:pointer}
+.ci-list .ci-art{padding-left:20px}
+.ci-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:var(--cds-gap-md)}
+.ci-tile,.ci-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0}
+.ci-tile{display:flex;flex-direction:column;gap:var(--cds-gap-xs)}
+.ci-lbl{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.ci-num{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);line-height:1.15}
+.ci .ci-num b{font-weight:400}
+.ci-sub{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.ci-card h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
+.ci-card .ci-note{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:var(--cds-gap-xs) 0 var(--cds-gap-md)}
+.ci-chart{position:relative;min-height:420px}
+.ci-chart svg{display:block}
+.ci-tick{font-size:var(--cds-font-size-caption);fill:var(--color-fg-muted)}
+.ci-ptitle{font-size:var(--cds-font-size-caption);fill:var(--color-fg);font-weight:500}
+.ci-tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);min-width:11rem;z-index:2}
+.ci-tip .t{color:var(--cds-text-secondary);margin-bottom:4px}
+.ci-tip .r{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.ci-tip .r span:first-child{display:inline-flex;gap:6px;align-items:center}
+.ci-tip i{width:8px;height:8px;border-radius:2px;display:inline-block}
+.ci-tools{display:flex;gap:var(--cds-gap-sm);flex-wrap:wrap;align-items:center;margin-bottom:var(--cds-gap-sm)}
+.ci-tools input{flex:1 1 14rem;max-width:22rem}
+.ci-scroll{max-height:34rem;overflow:auto}
+.ci-table{width:100%;border-collapse:collapse;font-size:var(--cds-font-size-caption)}
+.ci-table th{position:sticky;top:0;background:var(--color-panel);text-align:right;font-weight:var(--cds-font-weight-medium);color:var(--color-fg-muted);border-bottom:1px solid var(--color-border-line);padding:0;white-space:nowrap;z-index:1}
+.ci-table th:first-child,.ci-table td:first-child{text-align:left}
+.ci-th{font:inherit;color:inherit;background:none;border:0;padding:var(--cds-pad-xs) var(--cds-pad-sm);cursor:pointer;width:100%;text-align:inherit}
+.ci-table td{padding:var(--cds-pad-xs) var(--cds-pad-sm);text-align:right;border-bottom:1px solid var(--color-border-line);white-space:nowrap}
+.ci-table td:first-child{white-space:normal;min-width:11rem}
+.ci-table td.l{text-align:left;color:var(--color-fg-muted)}
+.ci-table tfoot td{font-weight:var(--cds-font-weight-medium);border-top:1px solid var(--color-border-line);border-bottom:0}
+.ci-click tbody tr{cursor:pointer}
+.ci-click tbody tr:hover td{background:var(--color-bg)}
+.ci-table tbody tr.sel td{background:var(--color-bg);font-weight:var(--cds-font-weight-medium)}
+.ci-cellbar{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.ci-cellbar span.b{height:6px;border-radius:2px;background:var(--cds-chart-muted);display:inline-block}
+.ci-cellbar.alto span.b{background:var(--cds-chart-status-critical)}
+.ci-cellbar.alto span.v{color:var(--color-bad)}
+.ci-cellbar.bajo span.b{background:var(--color-ok)}
+.ci-cellbar.bajo span.v,.ci .ci-bajo{color:var(--color-ok)}
+.ci-cero{color:var(--color-fg-muted)}
+.ci-fail{display:flex;align-items:center;justify-content:center;gap:8px;min-height:inherit;height:100%;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption)}
+.ci-fail .ci-dot{width:.375rem;height:.375rem;border-radius:50%;background:var(--color-bad)}
+.ci [data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+.ci [data-dash-source-state=empty]{color:transparent}
+@media (max-width:640px){.ci-table .ci-hide{display:none}}
+</style>
+
+<div class="ci">
+  <header class="ci-head" id="resumen-texto">
+    <h1>Canje Ilolay</h1>
+    <p class="ci-take">En el período elegido, el canje fue el <b data-draw="take_inc" data-source="canje articulos">—</b> de la venta de Ilolay. El vendedor con más incidencia es <b data-draw="take_vend" data-source="canje vendedores">—</b>, con <b data-draw="take_vend_inc" data-source="canje vendedores">—</b>.</p>
+    <p>Venta: lo facturado de artículos Ilolay (facturas y notas de débito) menos los rechazos, sin IVA. Canje: las notas de crédito por canje (devoluciones DEV-CA de Gescom), sin las de motivo "descuento", que son rebajas de precio y no mercadería. Incidencia = canje ÷ venta. Costo de la mercadería vendida: el costo que Gescom guarda en cada renglón de la venta, menos el de los rechazos; margen bruto = (venta − costo) ÷ venta. Por fecha de carga del comprobante. Datos hasta el <span data-draw="ultimo" data-source="canje">—</span>.</p>
+  </header>
+
+  <div class="ci-bar" id="filtros">
+    <div class="ci-field">
+      <span>Período</span>
+      <div class="ci-seg" role="group" aria-label="Período rápido">
+        <button type="button" data-per="30" aria-pressed="true">Últimos 30 días</button>
+        <button type="button" data-per="mes" aria-pressed="false">Mes en curso</button>
+        <button type="button" data-per="ant" aria-pressed="false">Mes anterior</button>
+        <button type="button" data-per="todo" aria-pressed="false">Desde agosto</button>
+      </div>
+    </div>
+    <div class="ci-field">
+      <span>Desde / hasta</span>
+      <div class="ci-dates">
+        <input id="ci-desde" type="date" min="2026-08-01" max="2099-12-31" aria-label="Desde">
+        <input id="ci-hasta" type="date" min="2026-08-01" max="2099-12-31" aria-label="Hasta">
+      </div>
+    </div>
+    <label class="ci-field">
+      <span>Vendedor</span>
+      <select id="ci-vend" data-draw="vend" data-source="vendedores" aria-label="Vendedor"></select>
+    </label>
+    <div class="ci-field">
+      <span>Productos</span>
+      <details class="ci-prod" id="ci-prod">
+        <summary><span data-draw="prodsel" data-source="articulos">—</span></summary>
+        <div class="ci-panel">
+          <div class="ci-panel-tools">
+            <input id="ci-qp" type="search" placeholder="Buscar producto" aria-label="Buscar producto">
+            <button type="button" class="ci-btn" data-prod="todos">Todos</button>
+            <button type="button" class="ci-btn" data-prod="ninguno">Ninguno</button>
+          </div>
+          <div class="ci-list" data-draw="prodlist" data-source="articulos"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <section class="ci-tiles" id="totales">
+    <div class="ci-tile">
+      <span class="ci-lbl">Venta Ilolay del período</span>
+      <span class="ci-num"><b data-draw="t_venta" data-source="canje" class="dash-skeleton">—</b></span>
+      <span class="ci-sub"><b data-draw="t_venta_u" data-source="canje">—</b> unidades, sin IVA</span>
+    </div>
+    <div class="ci-tile">
+      <span class="ci-lbl">Costo de la mercadería vendida</span>
+      <span class="ci-num"><b data-draw="t_costo" data-source="canje" class="dash-skeleton">—</b></span>
+      <span class="ci-sub">Margen bruto <b data-draw="t_margen" data-source="canje">—</b></span>
+    </div>
+    <div class="ci-tile">
+      <span class="ci-lbl">Devolución por canje</span>
+      <span class="ci-num"><b data-draw="t_canje" data-source="canje" class="dash-skeleton">—</b></span>
+      <span class="ci-sub"><b data-draw="t_canje_u" data-source="canje">—</b> unidades; a costo <b data-draw="t_canje_costo" data-source="canje">—</b></span>
+    </div>
+    <div class="ci-tile">
+      <span class="ci-lbl">Incidencia del canje en la venta</span>
+      <span class="ci-num"><b data-draw="t_inc" data-source="canje" class="dash-skeleton">—</b></span>
+      <span class="ci-sub">En unidades: <b data-draw="t_inc_u" data-source="canje">—</b></span>
+    </div>
+    <div class="ci-tile">
+      <span class="ci-lbl">Canje promedio por día con venta</span>
+      <span class="ci-num"><b data-draw="t_dia" data-source="canje" class="dash-skeleton">—</b></span>
+      <span class="ci-sub"><b data-draw="t_dias" data-source="canje">—</b> días con venta en el período</span>
+    </div>
+  </section>
+
+  <section class="ci-card" id="diario">
+    <h2>Venta y canje por día</h2>
+    <p class="ci-note">Con los filtros de arriba. La línea de abajo es la incidencia de cada día; la punteada, la del período. Los puntos verdes son días con incidencia menor al 3 %. Pasá el mouse por un día para ver el detalle.</p>
+    <div class="ci-chart dash-skeleton" data-draw="diario" data-source="canje"></div>
+  </section>
+
+  <section class="ci-card" id="vendedores">
+    <h2>Incidencia por vendedor</h2>
+    <p class="ci-note">Período y productos elegidos arriba, todos los vendedores. En verde, incidencia menor al 3 %; en rojo, por encima de la incidencia del total. Tocá un vendedor para ver solo el suyo en el resto del tablero (otra vez para sacarlo); tocá un encabezado para ordenar.</p>
+    <div class="ci-scroll">
+      <table class="ci-table ci-click" data-draw="tvend" data-source="canje vendedores"></table>
+    </div>
+  </section>
+
+  <section class="ci-card" id="productos">
+    <h2>Incidencia por producto</h2>
+    <p class="ci-note">Para el vendedor y el período elegidos. En verde, incidencia menor al 3 %; en rojo, por encima de la del total. Tocá un encabezado para ordenar.</p>
+    <div class="ci-tools">
+      <input id="ci-qa" type="search" placeholder="Buscar producto" aria-label="Buscar producto en la tabla">
+    </div>
+    <div class="ci-scroll">
+      <table class="ci-table" data-draw="tart" data-source="canje articulos"></table>
+    </div>
+  </section>
+</div>
+
+<script>(() => {
+/* Estado, formatos y cuentas compartidas */
+const hoyStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const isoDe = (d) => d.toISOString().slice(0, 10);
+window.ciIso = isoDe;
+/* Incidencia de canje por debajo de este valor va en verde */
+window.ciUmbral = 0.03;
+window.ciPeriodo = (p) => {
+  const h = hoyStr(), [y, m] = h.split('-').map(Number);
+  if (p === 'mes') return [h.slice(0, 8) + '01', h];
+  if (p === 'ant') { const ini = new Date(Date.UTC(m === 1 ? y - 1 : y, m === 1 ? 11 : m - 2, 1)); const fin = new Date(Date.UTC(y, m - 1, 0)); return [isoDe(ini), isoDe(fin)]; }
+  if (p === 'todo') return ['2026-08-01', h];
+  const d = new Date(h + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 29); return [isoDe(d), h];
+};
+if (!window.ciEstado) {
+  const [a, b] = window.ciPeriodo('30');
+  window.ciEstado = {per: '30', desde: a, hasta: b, vend: '', arts: null, qp: '', qa: '', ov: 'inc', dv: -1, oa: 'canje', da: -1};
+}
+window.ciFmt = {
+  m: (v) => '$ ' + (v / 1e6).toLocaleString('es-AR', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' M',
+  p: (v) => '$ ' + Math.round(v).toLocaleString('es-AR'),
+  n: (v) => Math.round(v).toLocaleString('es-AR'),
+  pct: (v) => v == null || !isFinite(v) ? '—' : (v * 100).toLocaleString('es-AR', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + ' %',
+  pct2: (v) => v == null || !isFinite(v) ? '—' : (v * 100).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' %',
+  eje: (v) => Math.abs(v) >= 1e6 ? '$ ' + (v / 1e6).toLocaleString('es-AR', {maximumFractionDigits: 1}) + ' M' : '$ ' + Math.round(v / 1e3).toLocaleString('es-AR') + ' mil',
+  dia: (s) => +s.slice(8, 10) + '/' + +s.slice(5, 7),
+  diaL: (s) => ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][new Date(s + 'T00:00:00Z').getUTCDay()] + ' ' + +s.slice(8, 10) + '/' + +s.slice(5, 7),
+};
+window.ciNoListo = (el, d, texto) => {
+  const fallo = ['error', 'connect', 'declined', 'missing'].includes(d.status);
+  el.replaceChildren();
+  if (fallo) {
+    el.classList.remove('dash-skeleton');
+    const f = document.createElement('span'); f.className = 'ci-fail';
+    const dot = document.createElement('span'); dot.className = 'ci-dot';
+    f.append(dot, document.createTextNode('No se pudo cargar'));
+    el.append(f);
+  } else {
+    el.classList.add('dash-skeleton');
+    if (texto) el.textContent = '—';
+  }
+};
+
+/* Suma lo filtrado: total, por día, por artículo (con vendedor) y por vendedor (sin filtro de vendedor) */
+let memo = {k: null, v: null};
+window.ciAgg = () => {
+  const d = dash.data('canje');
+  if (d.status !== 'ok') return null;
+  const S = window.ciEstado;
+  const k = [S.desde, S.hasta, S.vend, S.arts ? [...S.arts].sort().join(',') : '*', d.data.length].join('|');
+  if (memo.k === k && memo.d === d.data) return memo.v;
+  const vacio = () => ({venta: 0, canje: 0, venta_u: 0, canje_u: 0, costo: 0, canje_costo: 0});
+  const sumar = (o, r) => { o.venta += +r.venta; o.canje += +r.canje; o.venta_u += +r.venta_u; o.canje_u += +r.canje_u; o.costo += +(r.costo || 0); o.canje_costo += +(r.canje_costo || 0); };
+  const tot = vacio(), dia = new Map(), art = new Map(), vend = new Map(), totTodos = vacio();
+  for (const r of d.data) {
+    if (r.fecha < S.desde || r.fecha > S.hasta) continue;
+    if (S.arts && !S.arts.has(r.articulo)) continue;
+    let v = vend.get(r.vendedor); if (!v) vend.set(r.vendedor, v = vacio());
+    sumar(v, r); sumar(totTodos, r);
+    if (S.vend && r.vendedor !== S.vend) continue;
+    sumar(tot, r);
+    let x = dia.get(r.fecha); if (!x) dia.set(r.fecha, x = vacio()); sumar(x, r);
+    let a = art.get(r.articulo); if (!a) art.set(r.articulo, a = vacio()); sumar(a, r);
+  }
+  const ultimo = d.data.reduce((m, r) => (r.fecha > m ? r.fecha : m), '');
+  const v = {tot, dia, art, vend, totTodos, ultimo};
+  memo = {k, d: d.data, v};
+  return v;
+};
+window.ciNombres = (id, key, campo) => {
+  const d = dash.data(id);
+  return new Map(d.status === 'ok' ? d.data.map((r) => [r[key], r[campo]]) : []);
+};
+window.ciTodo = () => ['take_inc', 'take_vend', 'take_vend_inc', 'ultimo', 'vend', 'prodsel', 'prodlist', 't_venta', 't_venta_u', 't_costo', 't_margen', 't_canje_costo', 't_canje', 't_canje_u', 't_inc', 't_inc_u', 't_dia', 't_dias', 'diario', 'tvend', 'tart'].forEach((n) => dash.draw(n));
+})();</script>
+
+<script>(() => {
+/* Controles */
+const S = window.ciEstado;
+const mostrarFechas = () => {
+  document.querySelectorAll('#ci-desde').forEach((i) => { if (i !== document.activeElement) i.value = S.desde; });
+  document.querySelectorAll('#ci-hasta').forEach((i) => { if (i !== document.activeElement) i.value = S.hasta; });
+  document.querySelectorAll('.ci-seg button[data-per]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.per === S.per)));
+};
+mostrarFechas();
+document.querySelectorAll('.ci-seg button[data-per]').forEach((b) => b.addEventListener('click', () => {
+  S.per = b.dataset.per; [S.desde, S.hasta] = window.ciPeriodo(S.per);
+  mostrarFechas(); window.ciTodo();
+}));
+document.querySelectorAll('#ci-desde, #ci-hasta').forEach((inp) => {
+  inp.addEventListener('change', () => {
+    if (!inp.value || !inp.validity.valid) return;
+    if (inp.id === 'ci-desde') S.desde = inp.value; else S.hasta = inp.value;
+    if (S.desde > S.hasta) { const t = S.desde; S.desde = S.hasta; S.hasta = t; }
+    S.per = ''; mostrarFechas(); window.ciTodo();
+  });
+  inp.addEventListener('blur', mostrarFechas);
+});
+document.querySelectorAll('#ci-qp').forEach((inp) => inp.addEventListener('input', () => { S.qp = inp.value.trim().toLowerCase(); dash.draw('prodlist'); }));
+document.querySelectorAll('#ci-qa').forEach((inp) => inp.addEventListener('input', () => { S.qa = inp.value.trim().toLowerCase(); dash.draw('tart'); }));
+document.querySelectorAll('.ci-btn[data-prod]').forEach((b) => b.addEventListener('click', () => {
+  S.arts = b.dataset.prod === 'todos' ? null : new Set();
+  window.ciTodo();
+}));
+const F = window.ciFmt;
+const isoDe = window.ciIso;
+
+/* Selector de vendedor */
+dash.draw('vend', (sel) => {
+  const g = dash.data('vendedores');
+  sel.replaceChildren(new Option('Todos los vendedores', ''), ...(g.status === 'ok' ? g.data : []).map((r) => new Option(r.nombre + ' (' + r.vendedor + ')', r.vendedor)));
+  sel.value = S.vend;
+  sel.onchange = () => { S.vend = sel.value; window.ciTodo(); };
+});
+
+/* Filtro de productos */
+dash.draw('prodsel', (el) => {
+  const g = dash.data('articulos');
+  if (g.status !== 'ok') return window.ciNoListo(el, g, true);
+  el.classList.remove('dash-skeleton');
+  const n = g.data.length;
+  if (!S.arts || S.arts.size === n) { el.textContent = 'Todos los productos (' + n + ')'; return; }
+  if (!S.arts.size) { el.textContent = 'Ningún producto'; return; }
+  const lineas = [...new Set(g.data.map((a) => a.linea))].filter((l) => g.data.filter((a) => a.linea === l).every((a) => S.arts.has(a.articulo)));
+  const sueltos = g.data.filter((a) => S.arts.has(a.articulo) && !lineas.includes(a.linea));
+  if (S.arts.size === 1) el.textContent = sueltos[0] ? sueltos[0].descripcion : '1 producto';
+  else if (!sueltos.length) el.textContent = lineas.join(', ') + ' (' + S.arts.size + ')';
+  else el.textContent = S.arts.size + ' de ' + n + ' productos';
+});
+dash.draw('prodlist', (el) => {
+  const g = dash.data('articulos');
+  el.replaceChildren();
+  if (g.status !== 'ok') return;
+  const todos = g.data.map((a) => a.articulo);
+  const elegido = (c) => !S.arts || S.arts.has(c);
+  const cambiar = (codigos, si) => {
+    const set = S.arts ? new Set(S.arts) : new Set(todos);
+    codigos.forEach((c) => (si ? set.add(c) : set.delete(c)));
+    S.arts = set.size === todos.length ? null : set;
+    window.ciTodo();
+  };
+  const lineas = [...new Set(g.data.map((a) => a.linea))];
+  for (const l of lineas) {
+    const arts = g.data.filter((a) => a.linea === l);
+    const vis = arts.filter((a) => !S.qp || a.descripcion.toLowerCase().includes(S.qp) || l.toLowerCase().includes(S.qp) || String(a.articulo).includes(S.qp));
+    if (!vis.length) continue;
+    const grp = document.createElement('div'); grp.className = 'ci-grp';
+    const lb = document.createElement('label'); const cb = document.createElement('input'); cb.type = 'checkbox';
+    const n = arts.filter((a) => elegido(a.articulo)).length;
+    cb.checked = n === arts.length; cb.indeterminate = n > 0 && n < arts.length;
+    cb.addEventListener('change', () => cambiar(arts.map((a) => a.articulo), cb.checked));
+    lb.append(cb, document.createTextNode(l + ' (' + arts.length + ')'));
+    grp.append(lb);
+    for (const a of vis) {
+      const la = document.createElement('label'); la.className = 'ci-art';
+      const c = document.createElement('input'); c.type = 'checkbox'; c.checked = elegido(a.articulo);
+      c.addEventListener('change', () => cambiar([a.articulo], c.checked));
+      la.append(c, document.createTextNode(a.descripcion));
+      grp.append(la);
+    }
+    el.append(grp);
+  }
+});
+
+/* Números sueltos */
+const num = (nombre, fn) => dash.draw(nombre, (el) => {
+  const d = dash.data('canje');
+  if (d.status !== 'ok') return window.ciNoListo(el, d, true);
+  el.classList.remove('dash-skeleton');
+  el.textContent = fn(window.ciAgg());
+});
+num('ultimo', (A) => A.ultimo ? F.diaL(A.ultimo) + '/' + A.ultimo.slice(0, 4) : '—');
+num('t_venta', (A) => F.m(A.tot.venta));
+num('t_venta_u', (A) => F.n(A.tot.venta_u));
+num('t_costo', (A) => F.m(A.tot.costo));
+num('t_margen', (A) => F.pct(A.tot.venta ? (A.tot.venta - A.tot.costo) / A.tot.venta : null));
+num('t_canje_costo', (A) => F.m(A.tot.canje_costo));
+num('t_canje', (A) => F.m(A.tot.canje));
+num('t_canje_u', (A) => F.n(A.tot.canje_u));
+/* Una incidencia: en verde si está por debajo del umbral */
+const numInc = (nombre, fn) => dash.draw(nombre, (el) => {
+  const d = dash.data('canje');
+  el.classList.remove('ci-bajo');
+  if (d.status !== 'ok') return window.ciNoListo(el, d, true);
+  el.classList.remove('dash-skeleton');
+  const v = fn(window.ciAgg());
+  el.textContent = F.pct2(v);
+  if (v != null && isFinite(v) && v < window.ciUmbral) el.classList.add('ci-bajo');
+});
+numInc('t_inc', (A) => (A.tot.venta ? A.tot.canje / A.tot.venta : null));
+numInc('t_inc_u', (A) => (A.tot.venta_u ? A.tot.canje_u / A.tot.venta_u : null));
+numInc('take_inc', (A) => (A.tot.venta ? A.tot.canje / A.tot.venta : null));
+const conVenta = (A) => [...A.dia.values()].filter((x) => x.venta > 0).length;
+num('t_dias', (A) => F.n(conVenta(A)));
+num('t_dia', (A) => { const n = conVenta(A); return n ? F.p(A.tot.canje / n) : '—'; });
+
+/* El vendedor de más incidencia (con al menos el 2 % de la venta del período, para no destacar uno con muy poca venta) */
+const peor = (A) => {
+  const lista = [...A.vend.entries()].filter(([, o]) => o.venta > 0 && o.venta >= 0.02 * A.totTodos.venta);
+  return lista.sort((a, b) => b[1].canje / b[1].venta - a[1].canje / a[1].venta)[0] || null;
+};
+num('take_vend', (A) => { const p = peor(A); return p ? (window.ciNombres('vendedores', 'vendedor', 'nombre').get(p[0]) || p[0]) : '—'; });
+numInc('take_vend_inc', (A) => { const p = peor(A); return p ? p[1].canje / p[1].venta : null; });
+
+/* Tooltip */
+const tooltip = (el) => {
+  const tip = document.createElement('div'); tip.className = 'ci-tip'; tip.hidden = true; el.append(tip);
+  return {
+    show(ev, titulo, filas) {
+      tip.replaceChildren();
+      const t = document.createElement('div'); t.className = 't'; t.textContent = titulo; tip.append(t);
+      for (const f of filas) {
+        const r = document.createElement('div'); r.className = 'r';
+        const a = document.createElement('span');
+        if (f.color) { const i = document.createElement('i'); i.style.background = f.color; a.append(i); }
+        a.append(document.createTextNode(f.nombre));
+        const b = document.createElement('span'); b.textContent = f.valor;
+        r.append(a, b); tip.append(r);
+      }
+      tip.hidden = false;
+      const box = el.getBoundingClientRect();
+      let x = ev.clientX - box.left + 12, y = ev.clientY - box.top + 12;
+      if (x + tip.offsetWidth > box.width) x = Math.max(0, ev.clientX - box.left - tip.offsetWidth - 12);
+      if (y + tip.offsetHeight > box.height) y = Math.max(0, box.height - tip.offsetHeight);
+      tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    },
+    hide() { tip.hidden = true; },
+  };
+};
+
+/* Gráfico diario: venta, canje e incidencia, un panel cada uno */
+dash.draw('diario', (el) => {
+  const d = dash.data('canje');
+  if (d.status !== 'ok') return window.ciNoListo(el, d, false);
+  el.classList.remove('dash-skeleton');
+  el.replaceChildren();
+  const A = window.ciAgg();
+  const dias = [];
+  for (let t = new Date(S.desde + 'T00:00:00Z'); isoDe(t) <= S.hasta; t.setUTCDate(t.getUTCDate() + 1)) {
+    const k = isoDe(t);
+    if (t.getUTCDay() !== 0 || A.dia.has(k)) dias.push(k);
+  }
+  const fila = (k) => A.dia.get(k) || {venta: 0, canje: 0, venta_u: 0, canje_u: 0, costo: 0, canje_costo: 0};
+  const incT = A.tot.venta ? A.tot.canje / A.tot.venta : null;
+  const W = Math.max(280, el.clientWidth), PH = 100, GAP = 34, TOP = 18, H = TOP + 3 * PH + 2 * GAP + 24;
+  const paneles = [
+    {k: 'venta', t: 'Venta', c: dash.colors[0], y0: TOP},
+    {k: 'canje', t: 'Canje', c: dash.colors[1], y0: TOP + PH + GAP},
+    {k: 'inc', t: 'Incidencia', c: dash.colors[2], y0: TOP + 2 * (PH + GAP)},
+  ];
+  const val = (p, k) => { const r = fila(k); return p.k === 'inc' ? (r.venta > 0 ? r.canje / r.venta : null) : r[p.k]; };
+  const fmtEje = (p) => (p.k === 'inc' ? (v) => (v * 100).toLocaleString('es-AR', {maximumFractionDigits: 1}) + ' %' : F.eje);
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`)
+    .attr('role', 'img').attr('aria-label', 'Venta, canje e incidencia por día');
+  paneles.forEach((p) => {
+    const vs = dias.map((k) => val(p, k)).filter((v) => v != null);
+    let mx = d3.max(vs) || 0;
+    if (p.k === 'inc' && incT) mx = Math.max(mx, incT);
+    p.y = d3.scaleLinear([0, mx || 1], [p.y0 + PH, p.y0 + 4]).nice(3);
+  });
+  let ml = 0;
+  const g0 = svg.append('g');
+  paneles.forEach((p) => p.y.ticks(3).forEach((t) => { const tx = g0.append('text').attr('class', 'ci-tick').text(fmtEje(p)(t)); ml = Math.max(ml, tx.node().getComputedTextLength()); }));
+  g0.remove();
+  ml = Math.ceil(ml) + 10;
+  const x = d3.scaleBand(dias, [ml, W]).paddingInner(0.25).paddingOuter(0.1);
+  const bw = Math.min(x.bandwidth(), 28), off = (x.bandwidth() - bw) / 2;
+  paneles.forEach((p) => {
+    svg.append('text').attr('class', 'ci-ptitle').attr('x', ml).attr('y', p.y0 - 6).text(p.t);
+    p.y.ticks(3).forEach((t) => {
+      svg.append('line').attr('x1', ml).attr('x2', W).attr('y1', p.y(t)).attr('y2', p.y(t))
+        .style('stroke', t === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)').attr('stroke-width', 1);
+      svg.append('text').attr('class', 'ci-tick').attr('x', ml - 8).attr('y', p.y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').text(fmtEje(p)(t));
+    });
+    if (p.k === 'inc') {
+      if (incT != null) svg.append('line').attr('x1', ml).attr('x2', W).attr('y1', p.y(incT)).attr('y2', p.y(incT))
+        .style('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 4').attr('stroke-width', 1);
+      const pts = dias.map((k) => [x(k) + x.bandwidth() / 2, val(p, k)]);
+      svg.append('path').datum(pts).attr('fill', 'none').style('stroke', p.c).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round')
+        .attr('d', d3.line().defined((q) => q[1] != null).x((q) => q[0]).y((q) => p.y(q[1])));
+      svg.append('g').selectAll('circle').data(pts.filter((q) => q[1] != null)).join('circle')
+        .attr('cx', (q) => q[0]).attr('cy', (q) => p.y(q[1])).attr('r', 3).style('fill', (q) => (q[1] < window.ciUmbral ? 'var(--color-ok)' : p.c));
+    } else {
+      svg.append('g').selectAll('rect').data(dias).join('rect')
+        .attr('x', (k) => x(k) + off).attr('width', bw)
+        .attr('y', (k) => p.y(Math.max(0, val(p, k)))).attr('height', (k) => Math.abs(p.y(0) - p.y(val(p, k))))
+        .attr('rx', 2).style('fill', p.c);
+    }
+  });
+  const cada = Math.max(1, Math.ceil(dias.length / Math.max(2, Math.floor((W - ml) / 48))));
+  dias.forEach((k, i) => {
+    if (i % cada) return;
+    svg.append('text').attr('class', 'ci-tick').attr('x', x(k) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle').text(F.dia(k));
+  });
+  const tip = tooltip(el);
+  dias.forEach((k) => {
+    svg.append('rect').attr('x', x(k)).attr('width', x.bandwidth()).attr('y', 0).attr('height', H).style('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const r = fila(k);
+        tip.show(ev, F.diaL(k), [
+          {nombre: 'Venta', valor: F.p(r.venta), color: dash.colors[0]},
+          {nombre: 'Costo de lo vendido', valor: F.p(r.costo || 0)},
+          {nombre: 'Canje', valor: F.p(r.canje), color: dash.colors[1]},
+          {nombre: 'Incidencia', valor: F.pct2(r.venta > 0 ? r.canje / r.venta : null), color: dash.colors[2]},
+          {nombre: 'Unidades canjeadas', valor: F.n(r.canje_u)},
+        ]);
+      })
+      .on('mouseleave', () => tip.hide());
+  });
+});
+
+/* Tablas */
+const tabla = (el, cols, filas, orden, dir, alOrdenar, pie, alElegir) => {
+  el.replaceChildren();
+  const thead = document.createElement('thead'), hr = document.createElement('tr');
+  cols.forEach((c) => {
+    const th = document.createElement('th');
+    if (c.hide) th.className = 'ci-hide';
+    th.setAttribute('aria-sort', c.f === orden ? (dir > 0 ? 'ascending' : 'descending') : 'none');
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ci-th';
+    b.textContent = c.t + (c.f === orden ? (dir > 0 ? ' ↑' : ' ↓') : '');
+    b.addEventListener('click', () => alOrdenar(c));
+    th.append(b); hr.append(th);
+  });
+  thead.append(hr);
+  const celda = (tr, c, r) => {
+    const td = document.createElement('td');
+    if (c.hide) td.classList.add('ci-hide');
+    const x = r[c.f];
+    if (c.txt) { td.textContent = x; if (c.l) td.classList.add('l'); }
+    else if (c.bar) {
+      const w = document.createElement('div');
+      w.className = 'ci-cellbar' + (x != null && isFinite(x) && x < window.ciUmbral ? ' bajo' : (c.alto && c.alto(r) ? ' alto' : ''));
+      const b = document.createElement('span'); b.className = 'b'; b.style.width = Math.round(Math.min(1, (x || 0) / (c.max || 1)) * 60) + 'px';
+      const t = document.createElement('span'); t.className = 'v'; t.textContent = F.pct2(x);
+      w.append(b, t); td.append(w);
+    } else { td.textContent = c.fmt(x); if (!x) td.classList.add('ci-cero'); }
+    tr.append(td);
+  };
+  const tbody = document.createElement('tbody');
+  filas.forEach((r) => {
+    const tr = document.createElement('tr');
+    if (r.sel) tr.className = 'sel';
+    if (alElegir) {
+      tr.tabIndex = 0;
+      tr.addEventListener('click', () => alElegir(r));
+      tr.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alElegir(r); } });
+    }
+    cols.forEach((c) => celda(tr, c, r));
+    tbody.append(tr);
+  });
+  el.append(thead, tbody);
+  if (pie) { const tf = document.createElement('tfoot'), tr = document.createElement('tr'); cols.forEach((c) => celda(tr, c, pie)); tf.append(tr); el.append(tf); }
+};
+const ordenar = (filas, k, dir) => filas.sort((a, b) => (typeof a[k] === 'string' ? a[k].localeCompare(b[k], 'es') : ((a[k] ?? -Infinity) - (b[k] ?? -Infinity))) * dir);
+
+dash.draw('tvend', (el) => {
+  const d = dash.data('canje');
+  if (d.status !== 'ok') { el.replaceChildren(); return; }
+  const A = window.ciAgg(), nom = window.ciNombres('vendedores', 'vendedor', 'nombre');
+  const incT = A.totTodos.venta ? A.totTodos.canje / A.totTodos.venta : 0;
+  const filas = [...A.vend.entries()].map(([v, o]) => ({vendedor: v, nombre: (nom.get(v) || v) + ' (' + v + ')', ...o,
+    inc: o.venta > 0 ? o.canje / o.venta : null, margen: o.venta > 0 ? (o.venta - o.costo) / o.venta : null, sel: v === S.vend}));
+  const maxInc = d3.max(filas, (r) => r.inc) || 1;
+  const cols = [
+    {f: 'nombre', t: 'Vendedor', txt: true},
+    {f: 'venta', t: 'Venta', fmt: F.p},
+    {f: 'costo', t: 'Costo vendido', fmt: F.p},
+    {f: 'margen', t: 'Margen', fmt: F.pct, hide: true},
+    {f: 'canje', t: 'Canje', fmt: F.p},
+    {f: 'inc', t: 'Incidencia', bar: true, max: maxInc, alto: (r) => r.inc != null && r.inc > incT},
+    {f: 'venta_u', t: 'Unid. vendidas', fmt: F.n, hide: true},
+    {f: 'canje_u', t: 'Unid. canjeadas', fmt: F.n, hide: true},
+  ];
+  tabla(el, cols, ordenar(filas, S.ov, S.dv), S.ov, S.dv,
+    (c) => { if (S.ov === c.f) S.dv = -S.dv; else { S.ov = c.f; S.dv = c.txt ? 1 : -1; } dash.draw('tvend'); },
+    {nombre: 'Total', ...A.totTodos, inc: A.totTodos.venta ? incT : null, margen: A.totTodos.venta ? (A.totTodos.venta - A.totTodos.costo) / A.totTodos.venta : null},
+    (r) => { S.vend = S.vend === r.vendedor ? '' : r.vendedor; window.ciTodo(); });
+});
+
+dash.draw('tart', (el) => {
+  const d = dash.data('canje');
+  if (d.status !== 'ok') { el.replaceChildren(); return; }
+  const A = window.ciAgg(), g = dash.data('articulos');
+  const info = new Map(g.status === 'ok' ? g.data.map((a) => [a.articulo, a]) : []);
+  let filas = [...A.art.entries()].map(([c, o]) => {
+    const a = info.get(c) || {};
+    return {articulo: c, descripcion: a.descripcion || c, linea: a.linea || '', ...o, inc: o.venta > 0 ? o.canje / o.venta : null,
+      margen: o.venta > 0 ? (o.venta - o.costo) / o.venta : null};
+  });
+  if (S.qa) filas = filas.filter((r) => r.descripcion.toLowerCase().includes(S.qa) || r.linea.toLowerCase().includes(S.qa) || String(r.articulo).includes(S.qa));
+  const incT = A.tot.venta ? A.tot.canje / A.tot.venta : 0;
+  const cols = [
+    {f: 'descripcion', t: 'Producto', txt: true},
+    {f: 'linea', t: 'Línea', txt: true, l: true, hide: true},
+    {f: 'venta', t: 'Venta', fmt: F.p},
+    {f: 'costo', t: 'Costo vendido', fmt: F.p},
+    {f: 'margen', t: 'Margen', fmt: F.pct, hide: true},
+    {f: 'canje', t: 'Canje', fmt: F.p},
+    {f: 'inc', t: 'Incidencia', bar: true, max: Math.min(1, d3.max(filas, (r) => r.inc) || 1), alto: (r) => r.inc != null && r.inc > incT},
+    {f: 'canje_u', t: 'Unid. canjeadas', fmt: F.n, hide: true},
+  ];
+  tabla(el, cols, ordenar(filas, S.oa, S.da), S.oa, S.da,
+    (c) => { if (S.oa === c.f) S.da = -S.da; else { S.oa = c.f; S.da = c.txt ? 1 : -1; } dash.draw('tart'); },
+    {descripcion: 'Total', linea: '', ...A.tot, inc: A.tot.venta ? incT : null, margen: A.tot.venta ? (A.tot.venta - A.tot.costo) / A.tot.venta : null});
+});
+})();</script>
+
+</div>
+</body>
+</html>

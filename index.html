@@ -57,7 +57,7 @@ window.dash = (() => {
   };
   const fire = () => { for (const n of draws.keys()) run(n); };
   for (const i of ids) {
-    fetch('datos/' + i + '.json?v=202611111508')
+    fetch('datos/' + i + '.json?v=202611121508')
       .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then((d) => { st[i] = { status: 'ok', data: d }; fire(); })
       .catch(() => { st[i] = { status: 'error', data: [] }; fire(); });
@@ -76,7 +76,7 @@ window.dash = (() => {
 </head>
 <body>
 <div class="pagina">
-<p class="al-dia">Datos de Gescom al 11/11/2026 15:08. Se actualiza todos los días a las 15 hs.</p>
+<p class="al-dia">Datos de Gescom al 12/11/2026 15:08. Se actualiza todos los días a las 15 hs.</p>
 
 <style>
 .ci{display:flex;flex-direction:column;gap:var(--cds-gap-lg);font-family:var(--font-anthropic-sans);font-variant-numeric:tabular-nums}
